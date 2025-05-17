@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>All Orders</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="card">
+  <h1 style="margin-bottom:20px;">All Orders (Current Term)</h1>
+  <div id="orders-search-row" style="margin-bottom:22px;display:flex;align-items:center;gap:16px;">
+    <input id="orders-search" type="text" placeholder="Search orders..." style="font-size:1.1rem;padding:8px 14px;border:1.3px solid #e6dfba;border-radius:8px;min-width:240px;"/>
+  </div>
+  <div id="orders-table-section">
+    <div id="orders-table"></div>
+  </div>
+</div>
+
+<!-- remove the whole inline <script> … </script> block -->
+<script type="module" src="orders.js"></script>
+
+</body>
+</html>

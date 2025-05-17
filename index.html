@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Loco Mojo Attendance</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- Google Fonts: Montserrat and Poppins -->
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Customer CSV upload in top left -->
+
+<div id="top-controls">
+  <label id="upload-csv-label" for="upload-csv">Upload Customers CSV</label>
+  <input id="upload-csv" type="file" accept=".csv" />
+  <a href="all-orders.html">View all orders</a>
+  <button id="refresh-orders-btn">Refresh</button>
+</div>
+
+
+
+<div class="card">
+<div class="flex-header-row">
+  <div class="day-select-wrap">
+    <label for="day-select" style="font-weight:500; font-size:1.06rem; margin-right:10px; color:#4e4b38;">
+      Day:
+    </label>
+    <select id="day-select" style="font-size:1.07rem; padding:6px 20px; border-radius:8px; border:1.3px solid #e6dfba;">
+      <option value="Tuesday" selected>Tuesday</option>
+      <option value="Thursday">Thursday</option>
+    </select>
+  </div>
+  <h1 id="term-block">Term 2 – Block A</h1>
+  <div style="width:165px"></div> <!-- <--- Add this! width ≈ .day-select-wrap -->
+</div>
+
+  <div class="class-buttons" id="class-buttons-row"></div>
+
+  
+
+
+<div class="container">
+
+  <!-- FILTERS ALWAYS SHOW -->
+  <div id="attendance-filters" style="display:flex; gap:14px; align-items:center; justify-content:center; margin:32px 0 16px 0;">
+    <input id="filter-name" type="text" placeholder="Filter by name..." style="font-size:1rem; padding:8px 13px; border-radius:8px; border:1.2px solid #e6dfba; min-width:160px;">
+  </div>
+
+
+  <div id="attendance-table-section">
+    <!-- Table will be rendered here -->
+  </div>
+
+  </div>
+<script type="module" src="main.js"></script>
+</body>
+
+</html>

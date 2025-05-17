@@ -1,0 +1,164 @@
+/* =========================================================================
+   GLOBALS – font + background
+   ========================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;600&display=swap');
+
+/* ====================================================================
+   DESIGN-TOKENS  – single source of truth for colours & radii
+   ==================================================================== */
+:root{
+  /* brand yellows */
+  --yellow-1:#eed265;
+  --yellow-2:#e3c14b;
+  --yellow-3:#dab43d;
+
+  /* neutrals */
+  --beige:#f4f0e6;
+  --text-dark:#3b370b;
+
+  /* table stripes */
+  --row-even:#fcf9f0;
+  --row-odd:#fffbe8;
+
+  --radius-lg:22px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+  font-family:'Montserrat','Poppins',Arial,sans-serif;
+  background:linear-gradient(135deg,#f7f3e7 0%,#fff7e3 100%);
+  min-height:100vh;
+}
+
+/* =========================================================================
+   CARD WRAPPER
+   ========================================================================= */
+.card{
+  background:#fffdf8;
+  border-radius:var(--radius-lg);
+  box-shadow:0 6px 32px rgba(190,163,46,.11),0 2px 12px rgba(0,0,0,.07);
+  max-width:950px;
+  margin:48px auto 0;
+  padding:40px 36px;
+  display:flex;flex-direction:column;align-items:center;
+}
+
+/* =========================================================================
+   HEADINGS
+   ========================================================================= */
+h1{font-size:2.9rem;margin:0 0 12px;font-weight:800;letter-spacing:.01em;color:#2d2926;text-align:center}
+h2{font-size:1.5rem;font-weight:700;margin:0 0 32px;color:#57490a;text-align:center;letter-spacing:.01em}
+
+a{color:#4e3381;text-decoration:underline;font-weight:600;transition:color .13s}
+a:hover{color:#e2ba36}
+
+/* =========================================================================
+   TOP-LEFT CONTROLS
+   ========================================================================= */
+#top-controls{
+  position:absolute;top:0;left:0;z-index:10;
+  display:flex;flex-direction:column;gap:14px;
+  padding:14px 24px 8px;
+}
+#top-controls a,#top-controls button,#top-controls label{
+  font-size:1.08rem;font-weight:600;color:#a68d2a;
+  background:#fcf7e0;border:1.2px solid #e3c979;border-radius:8px;
+  padding:7px 17px;cursor:pointer;text-decoration:none;
+  transition:background .16s,color .16s,border .16s;
+  box-shadow:0 1.5px 7px rgba(210,180,65,.09);
+}
+#top-controls a:hover,#top-controls button:hover,#top-controls label:hover{
+  background:#f6eac5;color:#7d6700;border-color:#cfb345;
+}
+#upload-csv{display:none}
+
+/* =========================================================================
+   CLASS BUTTONS
+   ========================================================================= */
+#class-buttons-row{display:flex;gap:32px;justify-content:center;margin:32px 0 26px;flex-wrap:wrap}
+.class-btn{
+  background:linear-gradient(90deg,var(--yellow-1) 0%,var(--yellow-2) 100%);
+  color:#332c05;border:none;border-radius:22px;padding:22px 52px;
+  font-size:1.25rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
+  box-shadow:0 3px 12px rgba(216,181,60,.09);
+  transition:background .15s,box-shadow .15s,color .15s,outline .15s;
+}
+.class-btn:hover{background:linear-gradient(90deg,#e8ce56 0%,#ffe680 100%);color:#7a670f}
+.class-btn.active,.class-btn:focus{
+  background:linear-gradient(90deg,#e6c84e 0%,#f5d765 100%);
+  color:#483f12;box-shadow:0 5px 19px rgba(222,182,56,.14);outline:2px solid #e1be37;
+}
+
+/* =========================================================================
+   FILTER BAR
+   ========================================================================= */
+#attendance-filters,#orders-search-row{
+  display:flex;align-items:center;justify-content:center;gap:14px;margin:32px 0 16px;
+}
+#attendance-filters input[type=text],#orders-search-row input[type=text],#filter-role{
+  font-size:1.1rem;padding:8px 16px;border:1.5px solid #e8d372;border-radius:8px;
+  background:#fffbe9;color:#493c0b;font-weight:500;min-width:200px;
+  transition:border .16s,background .16s;outline:none;
+}
+#attendance-filters input[type=text]:focus,#orders-search-row input[type=text]:focus,#filter-role:focus{
+  border-color:var(--yellow-3);background:#fff9d1;
+}
+
+/* =========================================================================
+   TABLES
+   ========================================================================= */
+#attendance-table-section,#orders-table-section{
+  width:100%;overflow-x:auto;display:flex;justify-content:center;
+  position:relative;max-height:70vh;padding-bottom:16px;
+}
+#attendance-table-section table,#orders-table-section table{
+  border-collapse:separate;border-spacing:0;width:100%;min-width:650px;max-width:950px;
+  background:#fffefb;border-radius:22px 22px 18px 18px;overflow:hidden;
+  box-shadow:0 2px 10px rgba(224,196,68,.07)
+}
+#attendance-table-section th,#orders-table-section th{
+  font-weight:600;font-size:1.07rem;background:var(--beige);color:var(--text-dark);
+  padding:9px 10px;border-bottom:1.5px solid #e3dba6;text-align:left;white-space:nowrap;
+  position:sticky;top:0;z-index:2;box-shadow:0 2px 6px rgba(0,0,0,.06)
+}
+#attendance-table-section td,#orders-table-section td{
+  font-size:1.01rem;padding:8px 10px;background:var(--row-odd);border-bottom:1px solid #f6f3e7;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#attendance-table-section tr:nth-child(even) td,#orders-table-section tr:nth-child(even) td{
+  background:var(--row-even)
+}
+#attendance-table-section tbody tr:hover td,#orders-table-section tbody tr:hover td{
+  background:#fff7d8 !important;
+}
+input[type=checkbox]{display:block;margin:0 auto;accent-color:var(--yellow-3)}
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media(max-width:950px){
+  .card{padding:24px 4vw}
+  #attendance-table-section table,#orders-table-section table{min-width:500px}
+  .class-btn{padding:15px 8vw;font-size:1.08rem}
+}
+@media(max-width:650px){
+  h1{font-size:1.25rem}
+  .card{margin:12px auto 0;padding:8px 2vw 12px}
+  #attendance-table-section table,#orders-table-section table{min-width:340px}
+  .class-btn{padding:10px 4vw;font-size:1rem}
+}
+
+/* =========================================================================
+   MISC WIDTH / ACTIVE BUTTON
+   ========================================================================= */
+#orders-table-section{display:block}
+#orders-table-section th,#orders-table-section td{max-width:260px}
+.class-btn.active{outline:4px solid #4e3381;transform:scale(1.05)}
+
+/* =========================================================================
+   FLEX HEADER ROW (Day selector + centered heading)
+   ========================================================================= */
+.flex-header-row{display:flex;align-items:center;width:100%;justify-content:flex-start;margin-bottom:18px}
+.flex-header-row .day-select-wrap{margin-right:30px;display:flex;align-items:center}
+.flex-header-row h1{flex:1;text-align:center;margin:0}
