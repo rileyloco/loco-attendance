@@ -10,7 +10,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: {
-        'Access-Control-Allow-Origin': 'https://l`loco-attendance.netlify.app',
+        'Access-Control-Allow-Origin': 'https://loco-attendance.netlify.app', // Corrected URL
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
       },
