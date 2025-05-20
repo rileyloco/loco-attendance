@@ -21,14 +21,26 @@
     th:hover {
       background-color: #ddd;
     }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+    }
+    #output {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
   <h1>Test Orders Table</h1>
   <div>
+    <button id="fetch-shopify">Fetch Shopify Orders</button>
     <button id="load-sample">Load Sample Orders</button>
     <button id="clear-orders">Clear Orders</button>
   </div>
+  <div id="output">Status messages will appear here...</div>
   <div id="orders-table-section"></div>
 
   <script type="module">
@@ -36,6 +48,7 @@
     import { renderTable } from './table.js';
 
     let ORDERS = loadOrders();
+    console.log('Initial ORDERS on page load:', ORDERS);
     let sortOrder = {};
 
     function showOrders(list) {
@@ -46,7 +59,7 @@
       }
 
       if (!list || !list.length || !list[0] || typeof list[0] !== 'object') {
-        container.innerHTML = "<p style='color:#b87;'>No valid orders loaded. Try loading sample orders.</p>";
+        container.innerHTML = "<p style='color:#b87;'>No valid orders loaded. Try fetching Shopify orders or loading sample orders.</p>";
         return;
       }
 
@@ -61,6 +74,8 @@
         options: { sortState: null }
       });
 
+      console.log('Rendered table HTML:', container.innerHTML);
+
       setTimeout(() => {
         headers.forEach((h, idx) => {
           const thElement = document.querySelector(`#orders-table-section th[data-col='${idx}']`);
@@ -70,7 +85,7 @@
             console.warn(`Table header for data-col='${idx}' not found in #orders-table-section`);
           }
         });
-      }, 0);
+      }, 100);
     }
 
     function sortTable(idx, headers) {
@@ -88,8 +103,33 @@
       showOrders(ORDERS);
     }
 
+    // Fetch orders from Shopify
+    document.getElementById('fetch-shopify').onclick = async () => {
+      const output = document.getElementById('output');
+      output.textContent = 'Fetching Shopify orders...';
+
+      try {
+        const response = await fetch('/.netlify/functions/shopify-proxy');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Netlify Function error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        const data = await response.json();
+        output.textContent = 'Successfully fetched Shopify orders.';
+        saveOrders(data);
+        ORDERS = loadOrders();
+        console.log('Fetched Shopify orders:', ORDERS);
+        showOrders(ORDERS);
+      } catch (error) {
+        output.textContent = `Error: ${error.message}`;
+        console.error('Error fetching Shopify orders:', error);
+      }
+    };
+
     // Load sample orders for testing
     document.getElementById('load-sample').onclick = () => {
+      const output = document.getElementById('output');
+      output.textContent = 'Loading sample orders...';
       const sampleOrders = [
         {
           'First Name': 'John',
@@ -110,14 +150,18 @@
       saveOrders(sampleOrders);
       ORDERS = loadOrders();
       console.log('Loaded sample orders:', ORDERS);
+      output.textContent = 'Sample orders loaded.';
       showOrders(ORDERS);
     };
 
     // Clear orders for testing
     document.getElementById('clear-orders').onclick = () => {
+      const output = document.getElementById('output');
+      output.textContent = 'Clearing orders...';
       localStorage.removeItem('locomojo_orders');
       ORDERS = loadOrders();
       console.log('Cleared orders:', ORDERS);
+      output.textContent = 'Orders cleared.';
       showOrders(ORDERS);
     };
 
