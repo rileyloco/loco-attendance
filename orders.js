@@ -3,16 +3,18 @@ import { renderTable } from './table.js';
 
 /* ---------- 1. load & state ---------- */
 let ORDERS = loadOrders();
-let sortOrder = {}; // remembers asc/desc per column
+console.log('Loaded ORDERS:', ORDERS);
+let sortOrder = {};
 
 /* ---------- 2. main render ---------- */
 function showOrders(list) {
-  if (!list.length) {
+  if (!list.length || !list[0] || typeof list[0] !== 'object') {
     document.getElementById('orders-table-section').innerHTML =
-      "<p style='color:#b87;'>No orders loaded.</p>";
+      "<p style='color:#b87;'>No valid orders loaded.</p>";
     return;
   }
   const headers = Object.keys(list[0]);
+  console.log('Table headers:', headers);
   const rows = list.map(o => headers.map(h => o[h]));
 
   renderTable({
@@ -22,7 +24,6 @@ function showOrders(list) {
     options: { sortState: null }
   });
 
-  // Add a slight delay to ensure the DOM is updated
   setTimeout(() => {
     headers.forEach((h, idx) => {
       const thElement = document.querySelector(`#orders-table-section th[data-col='${idx}']`);

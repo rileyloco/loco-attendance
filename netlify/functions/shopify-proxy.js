@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 // Initialize Supabase client
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qfgmkcbbbiiovmmmfipa.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
+console.log('Initializing Supabase client');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 exports.handler = async (event) => {
@@ -29,6 +30,7 @@ exports.handler = async (event) => {
     console.log('Fetching orders from Shopify');
     const shopifyUrl = `https://${SHOPIFY_STORE}/admin/api/${API_VERSION}/orders.json?status=any&limit=250&created_at_min=${SINCE}`;
     const orders = await fetchAllOrders(shopifyUrl, SHOPIFY_TOKEN);
+    console.log('Fetched orders:', orders.length);
     console.log('Mapping orders');
     const mappedOrders = await mapOrders(orders);
     console.log('Returning mapped orders');
@@ -42,7 +44,7 @@ exports.handler = async (event) => {
       }
     };
   } catch (error) {
-    console.error('Error in shopify-proxy:', error);
+    console.error('Error in shopify-proxy:', error.message, error.stack);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
@@ -60,22 +62,29 @@ async function fetchAllOrders(url, token) {
 
   while (currentUrl) {
     console.log('Fetching Shopify orders from:', currentUrl);
-    const response = await fetch(currentUrl, {
-      headers: {
-        'X-Shopify-Access-Token': token
+    try {
+      const response = await fetch(currentUrl, {
+        headers: {
+          'X-Shopify-Access-Token': token
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Shopify API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
-    });
 
-    if (!response.ok) {
-      throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      console.log('Received Shopify data:', data);
+      allOrders.push(...data.orders);
+
+      const linkHeader = response.headers.get('Link');
+      const nextLink = linkHeader?.match(/<([^>]+)>; rel="next"/);
+      currentUrl = nextLink ? nextLink[1] : null;
+    } catch (error) {
+      console.error('Error in fetchAllOrders:', error.message, error.stack);
+      throw error;
     }
-
-    const data = await response.json();
-    allOrders.push(...data.orders);
-
-    const linkHeader = response.headers.get('Link');
-    const nextLink = linkHeader?.match(/<([^>]+)>; rel="next"/);
-    currentUrl = nextLink ? nextLink[1] : null;
   }
 
   return allOrders;
@@ -113,20 +122,24 @@ async function mapOrders(orders) {
       const key = `${customerId}||${role}`;
 
       if (!map[key]) {
-        // Fetch customer details from Supabase using customer_id
         let customerDetails = { first_name: '', last_name: '', email: '' };
         if (customerId) {
           console.log('Fetching customer from Supabase for ID:', customerId);
-          const { data: customer, error } = await supabase
-            .from('customers')
-            .select('first_name, last_name, email')
-            .eq('customer_id', customerId)
-            .single();
+          try {
+            const { data: customer, error } = await supabase
+              .from('customers')
+              .select('first_name, last_name, email')
+              .eq('customer_id', customerId)
+              .single();
 
-          if (error) {
-            console.error('Error fetching customer from Supabase:', error);
-          } else if (customer) {
-            customerDetails = customer;
+            if (error) {
+              console.error('Error fetching customer from Supabase:', error);
+            } else if (customer) {
+              customerDetails = customer;
+            }
+          } catch (error) {
+            console.error('Error in mapOrders during Supabase fetch:', error.message, error.stack);
+            throw error;
           }
         }
 
@@ -167,7 +180,7 @@ async function mapOrders(orders) {
         'order_id': data.order_id,
         'order_date': data.date,
         'customer_id': data.customerId,
-        'product_title': data |product_title,
+        'product_title': data.product_title,
         'variant_title': data.variant_title,
         'financial_status': data.paid ? 'paid' : 'pending',
         'Notes': data.note || ''
