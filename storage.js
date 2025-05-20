@@ -81,6 +81,7 @@ export async function loadAttendanceState(className) {
     console.log('No attendance records found for className:', className);
     return [];
   }
+  
 
   const result = data.map(record => {
     console.log('Mapping record:', record);

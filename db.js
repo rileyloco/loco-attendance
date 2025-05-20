@@ -9,6 +9,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ------------------------- Database Functions ------------------------ */
 
+
 // Upsert customers into the 'customers' table
 export const upsertCustomers = async (rows) => {
   try {

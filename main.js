@@ -311,6 +311,7 @@ document.getElementById('upload-csv').addEventListener('change', e => {
           }
           return isValid;
         });
+        
 
       if (!rows.length) {
         alert('❌ No valid rows found in this CSV.');

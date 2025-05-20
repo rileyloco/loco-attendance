@@ -23,6 +23,8 @@ exports.handler = async (event) => {
     };
   }
 
+  
+
   try {
     const shopifyUrl = `https://${SHOPIFY_STORE}/admin/api/${API_VERSION}/orders.json?status=any&limit=250&created_at_min=${SINCE}`;
     const orders = await fetchAllOrders(shopifyUrl, SHOPIFY_TOKEN);
