@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase client
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qfgmkcbbbiiovmmmfipa.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 exports.handler = async (event) => {
