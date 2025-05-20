@@ -1,19 +1,12 @@
-// --- 1. Constants and Data Setup --- //
+// --- Imports --- //
+import { saveOrders, loadOrders, saveAttendanceState, loadAttendanceState } from './storage.js';
+import { renderTable } from './table.js';
+import { upsertCustomers, supabase } from './db.js';
+
+// --- Constants and Data Setup --- //
 const weeks = 5; // Number of weeks per term
 
-// --- 2. Save/Load Utilities --- //
-import { saveOrders,
-         loadOrders,
-         saveAttendanceState,
-         loadAttendanceState } from './storage.js';
-
-         import { renderTable } from './table.js';  // instead of exporting it here
-
-
-/* keep your other globals (weeks, DAY_CLASS_MAP, …) here */
-
-
-// --- 1A. Day-Class Mapping --- //
+// --- Day-Class Mapping --- //
 const DAY_CLASS_MAP = {
   "Tuesday": [
     { label: "Level 1", value: "Level 1" },
@@ -29,7 +22,121 @@ const DAY_CLASS_MAP = {
 let currentDay = "Tuesday";
 let currentVisibleClass = null;
 
-// Renders class buttons and immediately displays default class table
+// --- Functions --- //
+async function updateClassAttendanceWithOrders(orders) {
+  const prevAttendance = {};
+
+  for (const className of Object.values(DAY_CLASS_MAP).flatMap(day => day.map(c => c.value))) {
+    prevAttendance[className] = await loadAttendanceState(className);
+    console.log('Initial prevAttendance for', className, prevAttendance[className]);
+  }
+
+  console.log('All prevAttendance keys:', Object.keys(prevAttendance));
+
+  for (const order of orders) {
+    const customerId = order.customer_id;
+    console.log('Processing order for customer_id:', customerId);
+
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('customer_id, first_name, last_name')
+      .eq('customer_id', customerId)
+      .single();
+
+    if (customerError) {
+      console.error('Customer fetch error for customer_id:', customerId, customerError);
+      continue;
+    }
+
+    if (!customer) {
+      console.log('No customer found for customer_id:', customerId);
+      continue;
+    }
+
+    const newName = `${order["First Name"] || customer.first_name || ""} ${order["Last Name"] || customer.last_name || ""}`.trim();
+    const role = order.Role || order.role || "";
+    console.log('Found customer:', customerId, 'Name:', newName, 'Role:', role);
+
+    const classList = (order.Classes || order.classes || "")
+      .split(",")
+      .map(c => {
+        const trimmed = c.trim();
+        const normalized = {
+          'level 1': 'Level 1',
+          'level 2': 'Level 2',
+          'level 3': 'Level 3',
+          'shines': 'Shines',
+          'body movement': 'Body Movement',
+          'level1': 'Level 1',
+          'level2': 'Level 2',
+          'level3': 'Level 3',
+          'level 1 ': 'Level 1',
+          'level 2 ': 'Level 2',
+          'level 3 ': 'Level 3',
+          'body movement ': 'Body Movement'
+        }[trimmed.toLowerCase()] || trimmed;
+        return normalized;
+      })
+      .filter(Boolean);
+
+    console.log('Classes for customer:', customerId, classList);
+
+    for (const className of classList) {
+      if (!className) {
+        console.log('Skipping empty className for customer:', customerId);
+        continue;
+      }
+
+      let finalRole = role;
+      if (['Body Movement', 'Shines'].includes(className)) {
+        finalRole = "";
+      }
+
+      if (!prevAttendance[className]) {
+        prevAttendance[className] = [];
+      }
+
+      if (!Array.isArray(prevAttendance[className])) {
+        console.error('prevAttendance[className] is not an array:', className, prevAttendance[className]);
+        prevAttendance[className] = [];
+      }
+
+      const exists = prevAttendance[className].some(
+        s =>
+          s.customer_id === customer.customer_id &&
+          s.class_name === className &&
+          (s.role || "").toLowerCase() === finalRole.toLowerCase()
+      );
+
+      if (exists) {
+        console.log('Student already exists in attendance:', customer.customer_id, className, newName, finalRole);
+        continue;
+      }
+
+      const newStudent = {
+        customer_id: customer.customer_id,
+        role: finalRole,
+        notes: order.Notes || "",
+        class_name: className,
+        'week 1': false, // Match the exact column name with space
+        'week 2': false,
+        'week 3': false,
+        'week 4': false,
+        'week 5': false
+      };
+      console.log('Adding new student to attendance:', newStudent);
+      const saved = await saveAttendanceState(className, newStudent);
+      if (saved) {
+        console.log('Successfully saved student to attendance:', customerId, className);
+        prevAttendance[className].push(newStudent);
+      } else {
+        console.error('Failed to save student to attendance:', customerId, className);
+      }
+    }
+  }
+}
+
+// --- Render Class Buttons --- //
 function renderClassButtons(day) {
   const row = document.getElementById("class-buttons-row");
   row.innerHTML = "";
@@ -50,7 +157,6 @@ function renderClassButtons(day) {
     renderClassAttendanceTable(defaultCls);
   }
 
-  // ONE-WAY click (never hides table)
   row.querySelectorAll(".class-btn").forEach(btn => {
     btn.onclick = () => {
       const cls = btn.dataset.class;
@@ -63,179 +169,66 @@ function renderClassButtons(day) {
   });
 }
 
+// --- Render Attendance Table --- //
+async function renderClassAttendanceTable(className) {
+  const students = await loadAttendanceState(className);
 
-
-
-// --- 3. Attendance Merge: Appends Only, Never Deletes --- //
-function updateClassAttendanceWithOrders(orders) {
-  const prevAttendance = loadAttendanceState();
-
-  orders.forEach(order => {
-    // Grab list of classes from 'Classes' (or 'classes') column, support multi-class
-    const classList = (order.Classes || order.classes || "")
-      .split(",")
-      .map(c => c.trim())
-      .filter(Boolean);
-
-    classList.forEach(className => {
-      if (!className) return;
-      if (!prevAttendance[className]) prevAttendance[className] = [];
-
-      const newName =
-        `${order["First Name"] || order.first_name || ""} ${order["Last Name"] || order.last_name || ""}`.trim();
-      const newRole = order.Role || order.role || "";
-      // Avoid duplicates by (name + role), case-insensitive
-      const exists = prevAttendance[className].some(
-        s =>
-          s.name.toLowerCase() === newName.toLowerCase() &&
-          (s.role || "").toLowerCase() === newRole.toLowerCase()
-      );
-      if (!exists) {
-        prevAttendance[className].push({
-          name: newName,
-          role: newRole,
-          email: order.Email || order.email || "",
-          paid: order.Paid || order.paid || "",
-          weeks: Array(weeks).fill(false)
-        });
-      }
-    });
-  });
-
-  saveAttendanceState(prevAttendance);
-}
-
-// --- 4. Attendance Table Renderer --- //
-
-
-// --- 6. Refresh Button Handler: Updates Orders + Attendance --- //
-const SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzGnzTznTqHE2MUM9JJSk_8v76Lk6Bfi75lvoKoBhHXJzXm5BJrzHCl4QQruSbBCT3v/exec";
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJpVqom-DRtqLFPdn_ZczS_X13953Lt1HwbaupPi8SKX6pFtRCzZLMd9mLM5DLQCTobc5WpVKhU-p9/pub?gid=2007168005&single=true&output=csv";
-
-document.getElementById('refresh-orders-btn').addEventListener('click', () => {
-  fetch(SCRIPT_WEB_APP_URL)
-    .then(res => res.text())
-    .then(txt => {
-      setTimeout(() => {
-        fetch(SHEET_CSV_URL)
-          .then(response => response.text())
-          .then(csvText => {
-            Papa.parse(csvText, {
-              header: true,
-              skipEmptyLines: true,
-              complete: function (results) {
-                const data = results.data;
-                saveOrders(data);
-                updateClassAttendanceWithOrders(data); // APPENDS only, never deletes
-                alert(`✅ Synced: ${data.length} orders imported from Google Sheet!\nAttendance updated (new students appended only).`);
-              },
-              error: function (error) {
-                alert('❌ Error parsing Sheet CSV: ' + error.message);
-              }
-            });
-          })
-          .catch(err => {
-            alert("❌ Could not fetch the sheet. Make sure it's published and accessible.");
-          });
-      }, 2500);
-    })
-    .catch(err => {
-      alert("❌ Could not trigger the update script. Check your Apps Script deployment and permissions.");
-    });
-});
-
-// --- On page load, set up filter bar listeners ---
-document.addEventListener('DOMContentLoaded', function () {
-  ['filter-name', 'filter-role', 'attendance-search'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('input', function () {
-        // Always re-render the table for the currently visible class!
-        if (currentVisibleClass) renderClassAttendanceTable(currentVisibleClass);
-      });
-    }
-  });
-
-  // Render class buttons for default day on load (this will also set currentVisibleClass)
-  renderClassButtons(currentDay);
-
-  // Set up day dropdown change handler
-  document.getElementById('day-select').addEventListener('change', function() {
-    currentDay = this.value;
-    renderClassButtons(currentDay); // This will update class buttons and table for new day
-  });
-});
-
-let sortState = { key: 'name', asc: true };   // default alphabetical
-
-
-function renderClassAttendanceTable(className) {
-  const state = loadAttendanceState();
-  let students = state[className] || [];
-
-  /* ---------- filters ---------- */
-  const nameFilter = (document.getElementById('filter-name')?.value || '')
-                      .trim().toLowerCase();
+  const nameFilter = (document.getElementById('filter-name')?.value || '').trim().toLowerCase();
   const roleFilter = document.getElementById('filter-role')?.value || '';
-  const searchFilter = (document.getElementById('attendance-search')?.value || '')
-                       .trim().toLowerCase();
+  const searchFilter = (document.getElementById('attendance-search')?.value || '').trim().toLowerCase();
 
-  students = students.filter(s => {
+  const filteredStudents = students.filter(s => {
     if (nameFilter && !s.name.toLowerCase().includes(nameFilter)) return false;
-    if (roleFilter && s.role !== roleFilter)                     return false;
+    if (roleFilter && s.role !== roleFilter) return false;
     if (searchFilter) {
-      const hay = `${s.name} ${s.role} ${s.email} ${s.paid}`.toLowerCase();
+      const hay = `${s.name} ${s.role}`.toLowerCase();
       if (!hay.includes(searchFilter)) return false;
     }
     return true;
   });
 
-  /* ---------- sorting ---------- */
   if (sortState.key) {
-    students.sort((a, b) => {
+    filteredStudents.sort((a, b) => {
       const A = (a[sortState.key] || '').toLowerCase();
       const B = (b[sortState.key] || '').toLowerCase();
       return sortState.asc ? A.localeCompare(B) : B.localeCompare(A);
     });
   }
 
-  /* ---------- prep data for generic renderer ---------- */
-  const headers = ['Name', 'Role',
-                   'Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
-
-  const rows = students.map(stu => [
+  const headers = ['Name', 'Role', 'Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+  const rows = filteredStudents.map(stu => [
     stu.name,
     stu.role || '',
-    ...stu.weeks            // [true,false,false,…] for the five check-boxes
+    stu['week 1'],
+    stu['week 2'],
+    stu['week 3'],
+    stu['week 4'],
+    stu['week 5']
   ]);
 
-  /* ---------- call the helper ---------- */
   renderTable({
     containerId: 'attendance-table-section',
     headers,
     rows,
     options: {
-      checkboxCol: 2,                     // first “Week” column gets check-boxes
-      sortState: {                        // convert key string → column index
-        key: headers.indexOf(
-              sortState.key === 'name' ? 'Name' : 'Role'),
+      checkboxCol: 2,
+      sortState: {
+        key: headers.indexOf(sortState.key === 'name' ? 'Name' : 'Role'),
         asc: sortState.asc
       },
-      onCheckbox(rowIdx, colIdx, checked) {
-        const week = colIdx - 2;          // convert column to week index 0-4
-        students[rowIdx].weeks[week] = checked;
-        state[className][rowIdx].weeks[week] = checked;
-        saveAttendanceState(state);
+      onCheckbox: async (rowIdx, colIdx, checked) => {
+        const week = colIdx - 2;
+        filteredStudents[rowIdx][`week ${week + 1}`] = checked;
+        await saveAttendanceState(className, filteredStudents[rowIdx]);
       }
     }
   });
 
-  /* ---------- header click events (name & role) ---------- */
   const wrap = document.getElementById('attendance-table-section');
-  wrap.querySelector('th[data-col="0"]').onclick = () => {   // Name col
+  wrap.querySelector('th[data-col="0"]').onclick = () => {
     toggleSort('name');
   };
-  wrap.querySelector('th[data-col="1"]').onclick = () => {   // Role col
+  wrap.querySelector('th[data-col="1"]').onclick = () => {
     toggleSort('role');
   };
 
@@ -246,8 +239,95 @@ function renderClassAttendanceTable(className) {
   }
 }
 
+// --- Refresh Button Handler --- //
+const SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzGnzTznTqHE2MUM9JJSk_8v76Lk6Bfi75lvoKoBhHXJzXm5BJrzHCl4QQruSbBCT3v/exec";
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJpVqom-DRtqLFPdn_ZczS_X13953Lt1HwbaupPi8SKX6pFtRCzZLMd9mLM5DLQCTobc5WpVKhU-p9/pub?gid=2007168005&single=true&output=csv";
 
-// Listen for name filter changes
+document.getElementById('refresh-orders-btn').addEventListener('click', async () => {
+  try {
+    const response = await fetch('/.netlify/functions/shopify-proxy');
+    if (!response.ok) {
+      throw new Error(`Netlify Function error: ${response.status} ${response.statusText}`);
+    }
+    const mappedOrders = await response.json();
+    console.log('Orders before updating attendance:', mappedOrders);
+    saveOrders(mappedOrders);
+    await updateClassAttendanceWithOrders(mappedOrders);
+    alert(`✅ Synced: ${mappedOrders.length} orders imported from Shopify!\nAttendance updated (new students appended only).`);
+  } catch (err) {
+    console.error('Error fetching Shopify orders:', err);
+    alert(`❌ Error fetching orders from Shopify: ${err.message}`);
+  }
+});
+
+// --- On Page Load --- //
+document.addEventListener('DOMContentLoaded', function () {
+  ['filter-name', 'filter-role', 'attendance-search'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', function () {
+        if (currentVisibleClass) renderClassAttendanceTable(currentVisibleClass);
+      });
+    }
+  });
+
+  renderClassButtons(currentDay);
+
+  document.getElementById('day-select').addEventListener('change', function() {
+    currentDay = this.value;
+    renderClassButtons(currentDay);
+  });
+});
+
+let sortState = { key: 'name', asc: true };
+
+// --- Listen for Name Filter Changes --- //
 document.getElementById('filter-name').addEventListener('input', function() {
   if (currentVisibleClass) renderClassAttendanceTable(currentVisibleClass);
+});
+
+/* ------------------------- CUSTOMER CSV UPLOAD ------------------------ */
+document.getElementById('upload-csv').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    delimiter: ',',
+    complete: async ({ data }) => {
+      console.log('Parsed CSV data:', data);
+      const rows = data
+        .map((r) => ({
+          customer_id: Number(r['Customer ID']?.replace(/['"]/g, '').trim()),
+          first_name: (r['First Name'] || '').trim(),
+          last_name: (r['Last Name'] || '').trim(),
+          email: (r['Email'] || '').trim().toLowerCase(),
+        }))
+        .filter((r) => {
+          const isValid = r.customer_id && !isNaN(r.customer_id) && r.email;
+          if (!isValid) {
+            console.warn('Invalid row:', r);
+          }
+          return isValid;
+        });
+
+      if (!rows.length) {
+        alert('❌ No valid rows found in this CSV.');
+        return;
+      }
+
+      console.log('Processed rows:', rows);
+      const { error } = await upsertCustomers(rows);
+      if (error) {
+        alert(`❌ Supabase error: ${error.message} (Code: ${error.code || 'Unknown'})`);
+      } else {
+        alert(`✅ ${rows.length} customer records saved to the database!`);
+      }
+    },
+    error: (err) => {
+      console.error('CSV parse error:', err);
+      alert('❌ CSV parse error: ' + err.message);
+    },
+  });
 });

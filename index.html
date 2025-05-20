@@ -3,20 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>Loco Mojo Attendance</title>
+  <!-- Load Papa Parse via script tag -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <!-- Google Fonts: Montserrat and Poppins -->
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Favicon to prevent 404 error -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
-    <!-- Customer CSV upload in top left -->
+  <!-- Customer CSV upload in top left -->
+  <div id="top-controls">
+    <label id="upload-csv-label" for="upload-csv">Upload Customers CSV</label>
+    <input id="upload-csv" type="file" accept=".csv" />
+    <a href="all-orders.html">View all orders</a>
+    <button id="refresh-orders-btn">Refresh</button>
+  </div>
 
-<div id="top-controls">
-  <label id="upload-csv-label" for="upload-csv">Upload Customers CSV</label>
-  <input id="upload-csv" type="file" accept=".csv" />
-  <a href="all-orders.html">View all orders</a>
-  <button id="refresh-orders-btn">Refresh</button>
-</div>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
 
 
 

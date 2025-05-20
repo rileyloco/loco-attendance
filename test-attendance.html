@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Attendance Write</title>
+</head>
+<body>
+  <h1>Test Attendance Write</h1>
+  <button id="test-button">Insert Test Record</button>
+  <p id="result"></p>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+
+    const SUPABASE_URL = 'https://qfgmkcbbbiiovmmmfipa.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmZ21rY2JiYmlpb3ZtbW1maXBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1NjQzODcsImV4cCI6MjA2MzE0MDM4N30.0adnE0HaoO5JqkuXku9WT1n2DDJEVKYcmSvT49gw1_I';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.getElementById('test-button').addEventListener('click', async () => {
+      const resultElement = document.getElementById('result');
+      try {
+        const testRecord = {
+          customer_id: 7670701260974,
+          class_name: 'Level 1',
+          role: 'Follower',
+          'week 1': false,  // Match the exact column name with space
+          'week 2': false,
+          'week 3': false,
+          'week 4': false,
+          'week 5': false,
+          notes: 'Test record'
+        };
+
+        console.log('Attempting to insert test record:', testRecord);
+        const { data, error } = await supabase
+          .from('attendance')
+          .insert(testRecord);
+
+        if (error) {
+          console.error('Error inserting test record:', error.message, error.details, error.hint);
+          resultElement.textContent = `Failed: ${error.message}`;
+          return;
+        }
+
+        console.log('Successfully inserted test record:', data);
+        resultElement.textContent = 'Success: Test record inserted!';
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        resultElement.textContent = `Unexpected error: ${err.message}`;
+      }
+    });
+  </script>
+</body>
+</html>
