@@ -1,39 +1,41 @@
-/* ------------------------- Supabase Client Setup ------------------------ */
-import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2.45.4';
-// Hardcode Supabase URL and key for now (we'll fix this later)
-const SUPABASE_URL = window.env?.SUPABASE_URL || 'https://qfgmkcbbbiiovmmmfipa.supabase.co';
-const SUPABASE_KEY = window.env?.SUPABASE_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-/* ------------------------- Database Functions ------------------------ */
-
-
-// Upsert customers into the 'customers' table
 export const upsertCustomers = async (rows) => {
   try {
-    const { data, error } = await supabase
-      .from('customers')
-      .upsert(rows, { onConflict: 'customer_id' });
-    if (error) {
-      console.error('Supabase error:', error);
-      return { error };
+    const response = await fetch('/.netlify/functions/supabase', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'upsertCustomers', payload: rows })
+    });
+    const result = await response.json();
+    if (response.status !== 200) {
+      console.error('Supabase error:', result.error);
+      return { error: { message: result.error } };
     }
-    return { data };
+    return { data: result.data };
   } catch (err) {
     console.error('Unexpected error:', err);
     return { error: { message: err.message } };
   }
 };
 
-// Fetch all customers from the 'customers' table
 export const fetchCustomers = async () => {
-  const { data, error } = await supabase.from('customers').select('*');
-  if (error) {
-    console.error('Fetch error:', error);
+  try {
+    const response = await fetch('/.netlify/functions/supabase', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'fetchCustomers' })
+    });
+    const result = await response.json();
+    if (response.status !== 200) {
+      console.error('Fetch error:', result.error);
+      return [];
+    }
+    return result || [];
+  } catch (err) {
+    console.error('Unexpected error:', err);
     return [];
   }
-  return data || [];
 };
-
-// Export the Supabase client for use in other files (e.g., storage.js)
-export { supabase };
