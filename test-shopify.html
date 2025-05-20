@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Shopify API Test</title>
+</head>
+<body>
+  <h1>Shopify API Test</h1>
+  <button id="fetch-orders">Fetch Orders</button>
+  <pre id="output">Click the button to fetch orders...</pre>
+
+  <script>
+    // --- Configuration ---
+    const STORE = process.env.SHOPIFY_STORE_URL || 'fnatn0-bb.myshopify.com';
+    const TOKEN = process.env.SHOPIFY_API_TOKEN; // Load from environment variables (e.g., via Netlify CLI)
+    const API = `https://${STORE}/admin/api/2024-04`;
+    const SINCE = '2025-04-01T00:00:00Z';
+    const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/'; // For local testing only
+
+    
+    // --- Fetch Orders Button Handler ---
+    document.getElementById('fetch-orders').addEventListener('click', async () => {
+      if (!TOKEN) {
+        document.getElementById('output').textContent = 'Error: Shopify API token is not set in environment variables';
+        return;
+      }
+
+      try {
+        // Fetch all orders with pagination
+        const orders = await fetchAllOrders(`${API}/orders.json?status=any&limit=250&created_at_min=${SINCE}`);
+        
+        // Map orders to the desired format
+        const mappedOrders = mapOrders(orders);
+
+        // Display the results
+        document.getElementById('output').textContent = JSON.stringify(mappedOrders, null, 2);
+        console.log('Mapped Orders:', mappedOrders);
+      } catch (err) {
+        document.getElementById('output').textContent = `Error: ${err.message}`;
+        console.error('Error:', err);
+      }
+    });
+
+    // --- Fetch All Orders with Pagination ---
+    async function fetchAllOrders(url) {
+      const allOrders = [];
+      let currentUrl = url;
+
+      while (currentUrl) {
+        // Use CORS proxy for local testing
+        const response = await fetch(`${CORS_PROXY}${currentUrl}`, {
+          headers: {
+            'X-Shopify-Access-Token': TOKEN
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        allOrders.push(...data.orders);
+
+        const linkHeader = response.headers.get('Link');
+        const nextLink = linkHeader?.match(/<([^>]+)>; rel="next"/);
+        currentUrl = nextLink ? nextLink[1] : null;
+      }
+
+      return allOrders;
+    }
+
+    // --- Map Shopify Orders to Desired Format ---
+    function mapOrders(orders) {
+      const map = {};
+
+      orders.forEach(order => {
+        const date = order.created_at.split('T')[0]; // YYYY-MM-DD
+        const paid = order.financial_status === 'paid';
+        const customerId = order.customer?.id?.toString() || '';
+
+        // Skip refunded line items
+        const refundedIds = new Set();
+        (order.refunds || []).forEach(refund => {
+          (refund.refund_line_items || []).forEach(item => {
+            if (item.line_item_id) refundedIds.add(item.line_item_id);
+          });
+        });
+
+        order.line_items.forEach(item => {
+          if (refundedIds.has(item.id)) return; // Skip refunded items
+
+          const variantTitle = item.variant_title || '';
+          const productTitle = item.title || '';
+
+          // Filter for Term 2A courses or bundles
+          const isCourse = /term\s*2a/i.test(variantTitle);
+          const isBundle = /bundle/i.test(productTitle) && /term\s*2/i.test(variantTitle);
+          if (!(isCourse || isBundle)) return;
+
+          // Derive role (Leader/Follower) from variant title
+          const role = variantTitle.toLowerCase().includes('leader') ? 'Leader'
+                     : variantTitle.toLowerCase().includes('follower') ? 'Follower' : '';
+
+          // Derive classes from product title
+          const classes = deriveClasses(productTitle);
+
+          // Group by customer ID and role to avoid duplicates
+          const key = `${customerId}||${role}`;
+
+          if (!map[key]) {
+            map[key] = {
+              customerId,
+              role,
+              paid,
+              date,
+              order_id: order.id.toString(),
+              product_title: productTitle,
+              variant_title: variantTitle,
+              classes: new Set(),
+              note: [order.note, order.customer?.note].filter(Boolean).join(' | ')
+            };
+          }
+
+          classes.forEach(cls => map[key].classes.add(cls));
+        });
+      });
+
+      // Format the grouped orders into rows
+      const rows = [];
+      Object.values(map).forEach(data => {
+        const allClasses = Array.from(data.classes);
+        const coreClasses = allClasses.filter(c => !['Body Movement', 'Shines'].includes(c));
+        const soloClasses = allClasses.filter(c => ['Body Movement', 'Shines'].includes(c));
+
+        // Core classes (Levels) with role
+        if (coreClasses.length > 0) {
+          rows.push({
+            'First Name': '', // Will fetch from customers database later
+            'Last Name': '',
+            'Email': '',
+            'Role': data.role,
+            'Classes': coreClasses.join(', '),
+            'Paid': data.paid,
+            'order_id': data.order_id,
+            'order_date': data.date,
+            'customer_id': data.customerId,
+            'product_title': data.product_title,
+            'variant_title': data.variant_title,
+            'financial_status': data.paid ? 'paid' : 'pending',
+            'Notes': data.note || ''
+          });
+        }
+
+        // Solo classes (Shines, Body Movement) without role
+        if (soloClasses.length > 0) {
+          rows.push({
+            'First Name': '',
+            'Last Name': '',
+            'Email': '',
+            'Role': '',
+            'Classes': soloClasses.join(', '),
+            'Paid': data.paid,
+            'order_id': data.order_id,
+            'order_date': data.date,
+            'customer_id': data.customerId,
+            'product_title': data.product_title,
+            'variant_title': data.variant_title,
+            'financial_status': data.paid ? 'paid' : 'pending',
+            'Notes': data.note || ''
+          });
+        }
+      });
+
+      return rows;
+    }
+
+    // --- Derive Classes from Product Title ---
+    function deriveClasses(title) {
+      const lowerTitle = title.toLowerCase();
+      if (lowerTitle.includes('platinum bundle') || lowerTitle.includes('unlimited bundle')) {
+        return ['Level 1', 'Level 2', 'Level 3', 'Body Movement', 'Shines'];
+      }
+      if (lowerTitle.includes('level 1')) return ['Level 1'];
+      if (lowerTitle.includes('level 2')) return ['Level 2'];
+      if (lowerTitle.includes('level 3')) return ['Level 3'];
+      if (lowerTitle.includes('level 4')) return ['Level 4'];
+      if (lowerTitle.includes('shines')) return ['Shines'];
+      if (lowerTitle.includes('body movement')) return ['Body Movement'];
+      return [];
+    }
+  </script>
+</body>
+</html>
