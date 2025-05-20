@@ -1,7 +1,7 @@
 // --- Imports --- //
 import { saveOrders, loadOrders, saveAttendanceState, loadAttendanceState } from './storage.js';
 import { renderTable } from './table.js';
-import { upsertCustomers } from './db.js';
+import { upsertCustomers, supabase } from './db.js';
 
 // --- Constants and Data Setup --- //
 const weeks = 5; // Number of weeks per term
@@ -37,23 +37,17 @@ async function updateClassAttendanceWithOrders(orders) {
     const customerId = order.customer_id;
     console.log('Processing order for customer_id:', customerId);
 
-    const response = await fetch('/.netlify/functions/supabase', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'fetchCustomerById',
-        payload: { customerId }
-      })
-    });
-    const result = await response.json();
-    if (response.status !== 200) {
-      console.error('Customer fetch error for customer_id:', customerId, result.error);
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('customer_id, first_name, last_name')
+      .eq('customer_id', customerId)
+      .single();
+
+    if (customerError) {
+      console.error('Customer fetch error for customer_id:', customerId, customerError);
       continue;
     }
 
-    const customer = result;
     if (!customer) {
       console.log('No customer found for customer_id:', customerId);
       continue;
@@ -124,7 +118,7 @@ async function updateClassAttendanceWithOrders(orders) {
         role: finalRole,
         notes: order.Notes || "",
         class_name: className,
-        'week 1': false,
+        'week 1': false, // Match the exact column name with space
         'week 2': false,
         'week 3': false,
         'week 4': false,
@@ -251,7 +245,6 @@ const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJpVqom-
 
 document.getElementById('refresh-orders-btn').addEventListener('click', async () => {
   try {
-    console.log('Fetching Shopify orders from /.netlify/functions/shopify-proxy');
     const response = await fetch('/.netlify/functions/shopify-proxy');
     if (!response.ok) {
       throw new Error(`Netlify Function error: ${response.status} ${response.statusText}`);
@@ -293,7 +286,7 @@ document.getElementById('filter-name').addEventListener('input', function() {
   if (currentVisibleClass) renderClassAttendanceTable(currentVisibleClass);
 });
 
-// --- Customer CSV Upload --- //
+/* ------------------------- CUSTOMER CSV UPLOAD ------------------------ */
 document.getElementById('upload-csv').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;

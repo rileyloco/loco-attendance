@@ -15,8 +15,6 @@ headers.forEach((h,i)=>{
   }
 });
 
-
-
   html += '</tr></thead><tbody>';
 
   rows.forEach((row,rIdx)=>{
