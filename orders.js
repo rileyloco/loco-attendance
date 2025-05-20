@@ -8,11 +8,17 @@ let sortOrder = {};
 
 /* ---------- 2. main render ---------- */
 function showOrders(list) {
-  if (!list.length || !list[0] || typeof list[0] !== 'object') {
-    document.getElementById('orders-table-section').innerHTML =
-      "<p style='color:#b87;'>No valid orders loaded.</p>";
+  const container = document.getElementById('orders-table-section');
+  if (!container) {
+    console.error('Container #orders-table-section not found');
     return;
   }
+
+  if (!list || !list.length || !list[0] || typeof list[0] !== 'object') {
+    container.innerHTML = "<p style='color:#b87;'>No valid orders loaded. Try refreshing orders on the main page.</p>";
+    return;
+  }
+
   const headers = Object.keys(list[0]);
   console.log('Table headers:', headers);
   const rows = list.map(o => headers.map(h => o[h]));
@@ -24,6 +30,7 @@ function showOrders(list) {
     options: { sortState: null }
   });
 
+  // Ensure the table is rendered before attaching event handlers
   setTimeout(() => {
     headers.forEach((h, idx) => {
       const thElement = document.querySelector(`#orders-table-section th[data-col='${idx}']`);

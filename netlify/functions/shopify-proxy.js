@@ -59,35 +59,84 @@ exports.handler = async (event) => {
 async function fetchAllOrders(url, token) {
   const allOrders = [];
   let currentUrl = url;
+  const MAX_RETRIES = 3;
+  const BASE_DELAY = 1000; // 1 second base delay for retries
 
   while (currentUrl) {
     console.log('Fetching Shopify orders from:', currentUrl);
-    try {
-      const response = await fetch(currentUrl, {
-        headers: {
-          'X-Shopify-Access-Token': token
+    let retries = 0;
+    let success = false;
+    let response;
+
+    while (retries < MAX_RETRIES && !success) {
+      try {
+        response = await fetchWithTimeout(currentUrl, {
+          headers: {
+            'X-Shopify-Access-Token': token
+          }
+        }, 10000); // 10-second timeout
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          if (response.status === 429) {
+            // Rate limit exceeded, retry with exponential backoff
+            const delay = BASE_DELAY * Math.pow(2, retries);
+            console.warn(`Rate limit hit, retrying after ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            retries++;
+            continue;
+          }
+          throw new Error(`Shopify API error: ${response.status} ${response.statusText} - ${errorText}`);
         }
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Shopify API error: ${response.status} ${response.statusText} - ${errorText}`);
+        success = true;
+      } catch (error) {
+        console.error('Error in fetchAllOrders attempt:', error.message, error.stack);
+        if (retries < MAX_RETRIES - 1) {
+          const delay = BASE_DELAY * Math.pow(2, retries);
+          console.warn(`Retrying after ${delay}ms due to error: ${error.message}`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          retries++;
+        } else {
+          throw error;
+        }
       }
-
-      const data = await response.json();
-      console.log('Received Shopify data:', data);
-      allOrders.push(...data.orders);
-
-      const linkHeader = response.headers.get('Link');
-      const nextLink = linkHeader?.match(/<([^>]+)>; rel="next"/);
-      currentUrl = nextLink ? nextLink[1] : null;
-    } catch (error) {
-      console.error('Error in fetchAllOrders:', error.message, error.stack);
-      throw error;
     }
+
+    if (!success) {
+      throw new Error('Failed to fetch Shopify orders after maximum retries');
+    }
+
+    const data = await response.json();
+    console.log('Received Shopify data:', data);
+    allOrders.push(...data.orders);
+
+    const linkHeader = response.headers.get('Link');
+    const nextLink = linkHeader?.match(/<([^>]+)>; rel="next"/);
+    currentUrl = nextLink ? nextLink[1] : null;
   }
 
   return allOrders;
+}
+
+// Utility function to add timeout to fetch
+async function fetchWithTimeout(url, options, timeout) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeout}ms`);
+    }
+    throw error;
+  }
 }
 
 async function mapOrders(orders) {
