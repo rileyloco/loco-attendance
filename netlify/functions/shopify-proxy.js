@@ -1,10 +1,22 @@
-// Netlify Function to proxy Shopify API requests
 exports.handler = async (event) => {
   console.log('Starting shopify-proxy function');
   const SHOPIFY_STORE = process.env.SHOPIFY_STORE_URL || 'fnatn0-bb.myshopify.com';
   const SHOPIFY_TOKEN = process.env.SHOPIFY_API_TOKEN;
   const API_VERSION = '2024-04';
   const SINCE = '2024-01-01T00:00:00Z';
+
+  // Handle CORS preflight OPTIONS request
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': 'https://l`loco-attendance.netlify.app',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+      },
+      body: ''
+    };
+  }
 
   if (!SHOPIFY_TOKEN) {
     console.error('Shopify API token is not set in environment variables');
@@ -13,7 +25,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: 'Shopify API token is not set in environment variables' }),
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': 'https://loco-attendance.netlify.app'
       }
     };
   }
@@ -64,7 +76,7 @@ exports.handler = async (event) => {
       body: JSON.stringify(data.orders || []),
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': 'https://loco-attendance.netlify.app'
       }
     };
   } catch (error) {
@@ -74,7 +86,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: error.message }),
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': 'https://loco-attendance.netlify.app'
       }
     };
   }
