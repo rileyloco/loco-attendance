@@ -4,6 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
+    "build": "node inject-env.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

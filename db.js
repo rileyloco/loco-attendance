@@ -1,9 +1,8 @@
 /* ------------------------- Supabase Client Setup ------------------------ */
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2.45.4';
 // Hardcode Supabase URL and key for now (we'll fix this later)
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qfgmkcbbbiiovmmmfipa.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
-// Initialize Supabase client
+const SUPABASE_URL = window.env?.SUPABASE_URL || 'https://qfgmkcbbbiiovmmmfipa.supabase.co';
+const SUPABASE_KEY = window.env?.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ------------------------- Database Functions ------------------------ */
