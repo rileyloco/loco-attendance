@@ -1,57 +1,62 @@
-import { loadOrders }    from './storage.js';
-import { renderTable } from './table.js';  // remove the ./main.js import
-
-
+import { loadOrders } from './storage.js';
+import { renderTable } from './table.js';
 
 /* ---------- 1. load & state ---------- */
 let ORDERS = loadOrders();
-let sortOrder = {};    // remembers asc/desc per column
+let sortOrder = {}; // remembers asc/desc per column
 
 /* ---------- 2. main render ---------- */
-function showOrders(list){
-  if(!list.length){
+function showOrders(list) {
+  if (!list.length) {
     document.getElementById('orders-table-section').innerHTML =
       "<p style='color:#b87;'>No orders loaded.</p>";
     return;
   }
   const headers = Object.keys(list[0]);
-  const rows    = list.map(o=>headers.map(h=>o[h]));
+  const rows = list.map(o => headers.map(h => o[h]));
 
   renderTable({
-    containerId:'orders-table-section',
+    containerId: 'orders-table-section',
     headers,
     rows,
-    options:{ sortState:null }
+    options: { sortState: null }
   });
 
-  headers.forEach((h,idx)=>{
-    document.querySelector(`#orders-table-section th[data-col='${idx}']`)
-      .onclick = ()=> sortTable(idx, headers);
-  });
+  // Add a slight delay to ensure the DOM is updated
+  setTimeout(() => {
+    headers.forEach((h, idx) => {
+      const thElement = document.querySelector(`#orders-table-section th[data-col='${idx}']`);
+      if (thElement) {
+        thElement.onclick = () => sortTable(idx, headers);
+      } else {
+        console.warn(`Table header for data-col='${idx}' not found in #orders-table-section`);
+      }
+    });
+  }, 0);
 }
 
 /* ---------- 3. sort ---------- */
-function sortTable(idx, headers){
+function sortTable(idx, headers) {
   const col = headers[idx];
   sortOrder[col] = !sortOrder[col];
-  ORDERS.sort((a,b)=>{
-    const A=(a[col]||'').toString().toLowerCase();
-    const B=(b[col]||'').toString().toLowerCase();
-    if(!isNaN(Date.parse(A)) && !isNaN(Date.parse(B)))
-      return sortOrder[col]? new Date(A)-new Date(B) : new Date(B)-new Date(A);
-    if(!isNaN(+A) && !isNaN(+B))
-      return sortOrder[col]? +A-+B : +B-+A;
-    return sortOrder[col]? A.localeCompare(B):B.localeCompare(A);
+  ORDERS.sort((a, b) => {
+    const A = (a[col] || '').toString().toLowerCase();
+    const B = (b[col] || '').toString().toLowerCase();
+    if (!isNaN(Date.parse(A)) && !isNaN(Date.parse(B)))
+      return sortOrder[col] ? new Date(A) - new Date(B) : new Date(B) - new Date(A);
+    if (!isNaN(+A) && !isNaN(+B))
+      return sortOrder[col] ? +A - +B : +B - +A;
+    return sortOrder[col] ? A.localeCompare(B) : B.localeCompare(A);
   });
   showOrders(ORDERS);
 }
 
 /* ---------- 4. search ---------- */
-document.getElementById('orders-search').oninput = e=>{
-  const q=e.target.value.trim().toLowerCase();
-  if(!q) return showOrders(ORDERS);
+document.getElementById('orders-search').oninput = e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return showOrders(ORDERS);
   const filtered = ORDERS.filter(o =>
-    Object.values(o).some(v=>(v||'').toString().toLowerCase().includes(q))
+    Object.values(o).some(v => (v || '').toString().toLowerCase().includes(q))
   );
   showOrders(filtered);
 };

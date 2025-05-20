@@ -251,6 +251,7 @@ const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJpVqom-
 
 document.getElementById('refresh-orders-btn').addEventListener('click', async () => {
   try {
+    console.log('Fetching Shopify orders from /.netlify/functions/shopify-proxy');
     const response = await fetch('/.netlify/functions/shopify-proxy');
     if (!response.ok) {
       throw new Error(`Netlify Function error: ${response.status} ${response.statusText}`);

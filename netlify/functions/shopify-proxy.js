@@ -7,12 +7,14 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 exports.handler = async (event) => {
+  console.log('Starting shopify-proxy function');
   const SHOPIFY_STORE = process.env.SHOPIFY_STORE_URL || 'fnatn0-bb.myshopify.com';
   const SHOPIFY_TOKEN = process.env.SHOPIFY_API_TOKEN;
   const API_VERSION = '2024-04';
   const SINCE = '2024-01-01T00:00:00Z';
 
   if (!SHOPIFY_TOKEN) {
+    console.error('Shopify API token is not set in environment variables');
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Shopify API token is not set in environment variables' }),
@@ -23,12 +25,13 @@ exports.handler = async (event) => {
     };
   }
 
-  
-
   try {
+    console.log('Fetching orders from Shopify');
     const shopifyUrl = `https://${SHOPIFY_STORE}/admin/api/${API_VERSION}/orders.json?status=any&limit=250&created_at_min=${SINCE}`;
     const orders = await fetchAllOrders(shopifyUrl, SHOPIFY_TOKEN);
+    console.log('Mapping orders');
     const mappedOrders = await mapOrders(orders);
+    console.log('Returning mapped orders');
 
     return {
       statusCode: 200,
@@ -39,6 +42,7 @@ exports.handler = async (event) => {
       }
     };
   } catch (error) {
+    console.error('Error in shopify-proxy:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
@@ -55,6 +59,7 @@ async function fetchAllOrders(url, token) {
   let currentUrl = url;
 
   while (currentUrl) {
+    console.log('Fetching Shopify orders from:', currentUrl);
     const response = await fetch(currentUrl, {
       headers: {
         'X-Shopify-Access-Token': token
@@ -111,6 +116,7 @@ async function mapOrders(orders) {
         // Fetch customer details from Supabase using customer_id
         let customerDetails = { first_name: '', last_name: '', email: '' };
         if (customerId) {
+          console.log('Fetching customer from Supabase for ID:', customerId);
           const { data: customer, error } = await supabase
             .from('customers')
             .select('first_name, last_name, email')
@@ -161,7 +167,7 @@ async function mapOrders(orders) {
         'order_id': data.order_id,
         'order_date': data.date,
         'customer_id': data.customerId,
-        'product_title': data.product_title,
+        'product_title': data |product_title,
         'variant_title': data.variant_title,
         'financial_status': data.paid ? 'paid' : 'pending',
         'Notes': data.note || ''
